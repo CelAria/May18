@@ -17,23 +17,62 @@
 
 using namespace std;
 
+
 // Window dimensions
-const GLuint WIDTH = 800, HEIGHT = 600;
-const GLfloat CAMERA_MOVEMENT_STEP = 5;
+const GLuint WIDTH = 800, HEIGHT = 800;
+const GLfloat CAMERA_MOVEMENT_STEP = 0.1f;
+const GLfloat LIGHT_MOVEMENT_STEP = 1.0f; 
 const float TEDDY_BEAR_SCALE_STEP = 0.1f;
 
-glm::vec3 camera_position(0.0f, -1.0f, 1.0f);
-glm::vec3 camera_direction(0.0, 1.0, -1.0);
+bool lbutton_down;   // boolean for left mouse button 
+float change = 0.1f; // initial value for scale 
+
+GLuint shaderProgram;
+GLuint VAO, VBO, EBO;
+
+
+struct vertexdata {
+	GLfloat x, y, z;
+	GLfloat	nx, ny, nz;
+};
+
+// declaration of interleaved master array which contains all of the indices and normals 
+
+std::vector<vertexdata> masterarray;
+
+glm::vec3 camera_position(0.0f, 3.0f, 5.0f);
+glm::vec3 camera_direction(0.0, -3.0, -5.0);
 glm::vec3 camera_up = glm::vec3(0, 1, 0);
-glm::vec3 triangle_scale = glm::vec3(0.1f);
+glm::vec3 light_left = glm::vec3(1, 0, 0);
+glm::vec3 light_right = glm::vec3(1, 0, 0);
+
+glm::vec3 triangle_scale = glm::vec3(0.2f);
+
+
 glm::mat4 projection_matrix;
 glm::mat4 view_matrix;
-glm::vec3 light_position(0.0f, 10.0f, 5.0f);
+glm::vec3 light_position(0.0f, 4.0f, 0.0f);
+glm::mat4 lightview_matrix = glm::lookAt(glm::vec3(light_position), glm::vec3(0.0f, 0.0f, 0.0f), camera_up);
+glm::mat4 light_matrix = projection_matrix * lightview_matrix; // matrix for view from light source for shadow map
+
+
 
 void update_camera() {
 	view_matrix = glm::lookAt(camera_position, //camera positioned here
-		camera_position + camera_direction, //looks at origin
+		(camera_position + camera_direction), //looks at origin
 		camera_up); //up vector
+
+}
+
+void update_light() {
+	view_matrix = lightview_matrix;
+		
+
+}
+
+void print_vec3(glm::vec3 input) {
+
+	cout << input.x << " " << input.y << " " << input.z << endl;
 
 }
 
@@ -41,33 +80,94 @@ void update_camera() {
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
 	std::cout << key << std::endl;
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)					// close window if esc pressed
 		glfwSetWindowShouldClose(window, GL_TRUE);
 
-	if (key == GLFW_KEY_LEFT && action == GLFW_PRESS)
-		camera_position += glm::cross(camera_direction, camera_up);
+	//camera movement callback functions 
+
+	//if (key == GLFW_KEY_LEFT && action == GLFW_PRESS)										//move camera position left
+	//	camera_position -= glm::cross(camera_direction, camera_up)* CAMERA_MOVEMENT_STEP;
+	//if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS)
+	//	camera_position += glm::cross(camera_direction, camera_up)* CAMERA_MOVEMENT_STEP; //move camera position right 
+
+	if (key == GLFW_KEY_LEFT && action == GLFW_PRESS)										//move camera position left
+		camera_position.x -= 1.0f;
 	if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS)
-		camera_position -= glm::cross(camera_direction, camera_up);
+		camera_position.x += 1.0f;
 
 
-	if (key == GLFW_KEY_UP && action == GLFW_PRESS)
-		camera_position += glm::cross(camera_direction, glm::cross(camera_direction, camera_up));
+	if (key == GLFW_KEY_UP && action == GLFW_PRESS)						
+		camera_position -= glm::cross(camera_direction, glm::cross(camera_direction, camera_up)* CAMERA_MOVEMENT_STEP);
 	if (key == GLFW_KEY_DOWN && action == GLFW_PRESS)
-		camera_position -= glm::cross(camera_direction, glm::cross(camera_direction, camera_up));
+		camera_position += glm::cross(camera_direction, glm::cross(camera_direction, camera_up)* CAMERA_MOVEMENT_STEP);
+
+	if (key == GLFW_KEY_T && action == GLFW_PRESS)						 // move camera up and down 
+		camera_position.y += 0.1f; 
+	if (key == GLFW_KEY_Y && action == GLFW_PRESS)
+		camera_position.y -= 0.1f;
+
+	//if (key == GLFW_KEY_G && action == GLFW_PRESS)						//move camera backward
+	//	camera_position += camera_direction;
+	//if (key == GLFW_KEY_H && action == GLFW_PRESS)						//move camera forward
+	//	camera_position -= camera_direction;
+
+	if (key == GLFW_KEY_G && action == GLFW_PRESS)						//move camera backward
+		camera_position.z += 1.0f;
+	if (key == GLFW_KEY_H && action == GLFW_PRESS)						//move camera forward
+		camera_position.z -= 1.0f; 
 
 
-	if (key == GLFW_KEY_W && action == GLFW_PRESS)
-		camera_position += camera_direction;
-	if (key == GLFW_KEY_S && action == GLFW_PRESS)
-		camera_position -= camera_direction;
-
-
-	if (key == GLFW_KEY_J && action == GLFW_PRESS)
-		camera_direction += 0.01f*glm::cross(camera_direction, camera_up);
+	if (key == GLFW_KEY_J && action == GLFW_PRESS)						//rotate camera 
+		camera_direction += 0.1f*glm::cross(camera_direction, camera_up);
 	if (key == GLFW_KEY_K && action == GLFW_PRESS)
-		camera_direction -= 0.01f*glm::cross(camera_direction, camera_up);
+		camera_direction -= 0.1f*glm::cross(camera_direction, camera_up);
+
+
+	// light movement callback functions 
+
+	if (key == GLFW_KEY_A && action == GLFW_PRESS)						 // move light up and down 
+		light_position.y += 1.0f;
+	if (key == GLFW_KEY_S && action == GLFW_PRESS)
+		light_position.y -= 1.0f;
+
+	if (key == GLFW_KEY_D && action == GLFW_PRESS)									//move light position left
+		light_position.x += 1.0f;
+	if (key == GLFW_KEY_F && action == GLFW_PRESS)
+		light_position.x -= 1.0f;
+
 	update_camera();
+	update_light();
+
+	// print out changed for debugging 
+	print_vec3(camera_position);
+	print_vec3(light_position);
 }
+
+
+// Is called whenever user makes mouse scroll with left button actions 
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+	if (button == GLFW_MOUSE_BUTTON_LEFT) {
+		if (GLFW_PRESS == action)
+			lbutton_down = true;
+		else if (GLFW_RELEASE == action)
+			lbutton_down = false;
+	}
+}
+
+void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
+{
+	if (lbutton_down) {
+		// drag happening here 
+
+		cout << "Cursor Position at (" << xpos << " : " << ypos << endl;
+		change = 0.001f* ypos;
+		cout << "change position is" << change << endl;
+		
+	}
+}
+
+void render();
 
 // The MAIN function, from here we start the application and run the game loop
 int main()
@@ -81,16 +181,23 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	// Create a GLFWwindow object that we can use for GLFW's functions
-	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Teddy Bear", nullptr, nullptr);
+	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Object", nullptr, nullptr);
 	if (window == nullptr)
 	{
 		std::cout << "Failed to create GLFW window" << std::endl;
 		glfwTerminate();
 		return -1;
 	}
-	glfwMakeContextCurrent(window);
 	// Set the required callback functions
-	glfwSetKeyCallback(window, key_callback);
+	glfwMakeContextCurrent(window);
+	glfwSetKeyCallback(window, key_callback);// enable keycallback
+	glfwSetMouseButtonCallback(window, mouse_button_callback);	// enable mousebutton callback
+	glfwSetCursorPosCallback(window, cursor_position_callback); //drag callback 
+	
+
+	// tell GLFW To capture the cursor
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
 
 	// Set this to true so GLEW knows to use a modern approach to retrieving function pointers and extensions
 	glewExperimental = GL_TRUE;
@@ -101,14 +208,19 @@ int main()
 		return -1;
 	}
 
+	//enable depth testing
+	glEnable(GL_DEPTH_TEST);
+
 	// Define the viewport dimensions
 	int width, height;
 	glfwGetFramebufferSize(window, &width, &height);
 
 	glViewport(0, 0, width, height);
-
-	projection_matrix = glm::perspective(45.0f, (GLfloat)width / (GLfloat)height, 0.0f, 100.0f);
-
+	
+	//declare area of projection of model 
+	float near_plane = 0.1f, far_plane = 1000.0f;
+	projection_matrix = glm::perspective(100.0f, (GLfloat)width / (GLfloat)height, near_plane, far_plane);
+	
 	// Build and compile our shader program
 	// Vertex shader
 
@@ -172,7 +284,7 @@ int main()
 		std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
 	}
 	// Link shaders
-	GLuint shaderProgram = glCreateProgram();
+	shaderProgram = glCreateProgram();
 	glAttachShader(shaderProgram, vertexShader);
 	glAttachShader(shaderProgram, fragmentShader);
 	glLinkProgram(shaderProgram);
@@ -184,9 +296,9 @@ int main()
 	}
 	glDeleteShader(vertexShader); //free up memory
 	glDeleteShader(fragmentShader);
-
 	glUseProgram(shaderProgram);
 
+	//set up vertex data and buffers and configure vertex attributes
 	std::vector<GLfloat> vertices;
 	std::vector<GLuint> indices;
 	std::vector<GLfloat> normals;
@@ -195,15 +307,6 @@ int main()
 	//3 vertices per triangle (1 normal) every triangle vertex has x, y, z and normals for these
 	loadOBJ("scene.obj", vertices, indices, normals, normalindices); //read the vertices and indices from the teddy.obj file
 
-
-	struct vertexdata { 
-		GLfloat x,y,z;
-		GLfloat	nx, ny, nz; 
-	};
-
-	// declaration of interleaved master array which contains all of the indices and normals 
-
-	std::vector<vertexdata> masterarray;
 
 	// check that number of vertex indices is equal to number of normals 
 	if (indices.size() != normalindices.size()) {
@@ -229,18 +332,43 @@ int main()
 	}
 
 	
+	//plane VAO 
 
-
-	GLuint VAO, VBO, EBO;
-
-
+	
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
 	glGenBuffers(1, &EBO); //index buffer
-
 						   
-				
-	// Bind the Vertex Array Object first, then bind and set vertex buffer(s) and attribute pointer(s).
+	// set shadow buffer size to size of window (resolution of depth map) 
+	const unsigned int SHADOW_WIDTH = WIDTH, SHADOW_HEIGHT = HEIGHT;
+	
+	unsigned int depthMapFBO;
+	glGenFramebuffers(1, &depthMapFBO);
+	// create depth texture
+	unsigned int depthMap;
+	glGenTextures(1, &depthMap);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+	
+	
+	// attach depth texture as FBO's depth buffer
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	 // Always check that our framebuffer is ok
+ if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+ return false;
+
+
 	glBindVertexArray(VAO);
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
@@ -257,51 +385,56 @@ int main()
 
 
 	glBindVertexArray(0); // Unbind VAO (it's always a good thing to unbind any buffer/array to prevent strange bugs), remember: do NOT unbind the EBO, keep it bound to this VAO
-
-
-	GLuint projectionLoc = glGetUniformLocation(shaderProgram, "projection_matrix");
-	GLuint viewMatrixLoc = glGetUniformLocation(shaderProgram, "view_matrix");
-	GLuint transformLoc = glGetUniformLocation(shaderProgram, "model_matrix");
-	GLuint lightpositionLoc = glGetUniformLocation(shaderProgram, "light_position");
-	GLuint camerapositionLoc = glGetUniformLocation(shaderProgram, "camera_position");
-
-
-	//glEnable(GL_DEPTH_TEST); // enable depth testing for hidden surface removal
-
+	
+	
 	// Game loop
 	while (!glfwWindowShouldClose(window))
 	{
 		// Check if any events have been activiated (key pressed, mouse moved etc.) and call corresponding response functions
 		glfwPollEvents();
+		
+		// Render shadow maps 
 
-		// Render
+		glClear(GL_DEPTH_BUFFER_BIT);
+		//attach depth buffer to framebuffer
+		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+		
+
+		// shadow depth map 
+		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+		glClear(GL_DEPTH_BUFFER_BIT);
+
+		lightview_matrix = glm::lookAt(light_position, //light positioned here
+			glm::vec3(0.0f, 0.0f, 0.0f), //looks at origin (should be light_direction)
+			camera_up); //up vector
+		view_matrix = lightview_matrix;
+
+		glDepthMask(GL_FALSE);
+
+		render(); // render from pov of light (depthmap) 
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		//render scene with regular depth map
+		glViewport(0, 0, width, height);
+		glActiveTexture(GL_TEXTURE0); // use first texture spot in fragment shader 
+		glBindTexture(GL_TEXTURE_2D, depthMap);		// texture filled by pov light depthmap use for render
+
+		
 		// Clear the colorbuffer
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
 
+		//clear color buffer and depth buffer 
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glDepthMask(GL_TRUE);
+		glDepthFunc(GL_LESS);					//use GL LESS hidden surface removal 
+									
 		update_camera();
 
-		glm::mat4 model_matrix;
-		model_matrix = glm::scale(model_matrix, triangle_scale);
 
-		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(model_matrix));
-		glUniformMatrix4fv(viewMatrixLoc, 1, GL_FALSE, glm::value_ptr(view_matrix));
-		glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection_matrix));
-		glUniform3fv(lightpositionLoc, 1, glm::value_ptr(light_position));
-		glUniform3fv(camerapositionLoc, 1, glm::value_ptr(camera_position));
+		render(); // render with depthmap of shadows
+		glBindTexture(GL_TEXTURE_2D, 0);		
 
-
-		glBindVertexArray(VAO);
-
-
-		glDrawArrays(
-			GL_TRIANGLES,// mode
-			0,
-			masterarray.size()    // count
-		
-		);
-
-		glBindVertexArray(0);
 
 		// Swap the screen buffers
 		glfwSwapBuffers(window);
@@ -310,4 +443,43 @@ int main()
 	// Terminate GLFW, clearing any resources allocated by GLFW.
 	glfwTerminate();
 	return 0;
+}
+
+void render() {
+
+	
+	// resize 
+	triangle_scale = glm::vec3(change);
+
+	glm::mat4 model_matrix;
+	model_matrix = glm::scale(model_matrix, triangle_scale);
+
+	GLuint projectionLoc = glGetUniformLocation(shaderProgram, "projection_matrix");
+	GLuint viewMatrixLoc = glGetUniformLocation(shaderProgram, "view_matrix");
+	GLuint transformLoc = glGetUniformLocation(shaderProgram, "model_matrix");
+	GLuint lightpositionLoc = glGetUniformLocation(shaderProgram, "light_position");
+	GLuint camerapositionLoc = glGetUniformLocation(shaderProgram, "camera_position");
+	GLuint lightviewMatrixLoc = glGetUniformLocation(shaderProgram, "lightview_matrix");
+	GLuint lightMatrixLoc = glGetUniformLocation(shaderProgram, "light_matrix");
+
+	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(model_matrix));
+	glUniformMatrix4fv(viewMatrixLoc, 1, GL_FALSE, glm::value_ptr(view_matrix));
+	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection_matrix));
+	glUniformMatrix4fv(lightviewMatrixLoc, 1, GL_FALSE, glm::value_ptr(lightview_matrix));
+	glUniformMatrix4fv(lightMatrixLoc, 1, GL_FALSE, glm::value_ptr(light_matrix));
+	glUniform3fv(lightpositionLoc, 1, glm::value_ptr(light_position));
+	glUniform3fv(camerapositionLoc, 1, glm::value_ptr(camera_position));
+
+
+	glBindVertexArray(VAO);
+
+
+	glDrawArrays(
+		GL_TRIANGLES,// mode
+		0,
+		masterarray.size()    // count
+
+	);
+
+	glBindVertexArray(0);
 }
