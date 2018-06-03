@@ -56,6 +56,8 @@
     <None Include="..\glew\glew32.dll" />
     <None Include="fragment.shader" />
     <None Include="vertex.shader" />
+    <None Include="simpledepth.shader" />
+    <None Include="simplefragment.shader" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="..\glfw\glfw3.lib" />

@@ -173,6 +173,8 @@
     <None Include="..\glew\glew32.dll" />
     <None Include="..\glfw\glfw3.dll" />
     <None Include="fragment.shader" />
+    <None Include="simpledepth.shader" />
+    <None Include="simplefragment.shader" />
     <None Include="vertex.shader" />
   </ItemGroup>
   <ItemGroup>
