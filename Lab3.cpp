@@ -156,6 +156,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 	}
 }
 
+//called whenever left click and drag happens 
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 {
 	if (lbutton_down) {
@@ -170,7 +171,8 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 
 
 
-// Read the Vertex Shader from file 
+//Function that Read the Shaders from file 
+
 void useShader(string vertex, string fragment) {
 	string vertex_shader_path =  vertex;
 	string VertexShaderCode;
@@ -277,15 +279,6 @@ void render() {
 
 	glBindVertexArray(VAO);
 
-
-	//glDrawElements(
-	//	GL_TRIANGLES,// modes
-	//	masterarray.size(),
-	//	GL_UNSIGNED_BYTE,
-	//	&masterarray  // count
-
-	//);
-
 	glDrawArrays(
 		GL_TRIANGLES,
 		0,
@@ -326,7 +319,7 @@ int main()
 
 	// Set this to true so GLEW knows to use a modern approach to retrieving function pointers and extensions
 	glewExperimental = GL_TRUE;
-	// Initialize GLEW to setup the OpenGL Function pointers
+	// Initialize GLEW to setup the OpenGL Function pointersf
 	if (glewInit() != GLEW_OK)
 	{
 		std::cout << "Failed to initialize GLEW" << std::endl;
